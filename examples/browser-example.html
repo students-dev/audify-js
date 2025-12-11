@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>audify-js Browser Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin: 20px 0;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 4px;
+    }
+    .queue {
+      margin: 20px 0;
+    }
+    .track {
+      padding: 8px;
+      border: 1px solid #ddd;
+      margin: 5px 0;
+      border-radius: 4px;
+      background: #f8f9fa;
+    }
+    .current-track {
+      background: #d4edda;
+      border-color: #c3e6cb;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 audify-js Browser Example</h1>
+
+    <div class="status" id="status">Initializing audio engine...</div>
+
+    <div class="controls">
+      <button id="playBtn">Play</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="stopBtn">Stop</button>
+      <button id="nextBtn">Next</button>
+      <button id="prevBtn">Previous</button>
+      <button id="shuffleBtn">Shuffle</button>
+    </div>
+
+    <div class="controls">
+      <button id="bassboostBtn">Bass Boost</button>
+      <button id="nightcoreBtn">Nightcore</button>
+      <button id="vaporwaveBtn">Vaporwave</button>
+      <button id="eightDBtn">8D Audio</button>
+      <button id="clearFiltersBtn">Clear Filters</button>
+    </div>
+
+    <div class="queue">
+      <h3>Queue:</h3>
+      <div id="queueList"></div>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="urlInput" placeholder="Enter audio URL" style="flex: 1; padding: 10px;">
+      <button id="addBtn">Add to Queue</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { AudioEngine } from '@students-dev/audify-js';
+
+    const engine = new AudioEngine();
+    const statusEl = document.getElementById('status');
+    const queueListEl = document.getElementById('queueList');
+
+    // UI Elements
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const bassboostBtn = document.getElementById('bassboostBtn');
+    const nightcoreBtn = document.getElementById('nightcoreBtn');
+    const vaporwaveBtn = document.getElementById('vaporwaveBtn');
+    const eightDBtn = document.getElementById('eightDBtn');
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    const addBtn = document.getElementById('addBtn');
+    const urlInput = document.getElementById('urlInput');
+
+    // Initialize engine
+    engine.on('ready', () => {
+      statusEl.textContent = 'Audio engine ready! Add some tracks to get started.';
+      updateUI();
+    });
+
+    // Event handlers
+    engine.on('play', () => {
+      statusEl.textContent = 'Playing...';
+      updateUI();
+    });
+
+    engine.on('pause', () => {
+      statusEl.textContent = 'Paused';
+      updateUI();
+    });
+
+    engine.on('stop', () => {
+      statusEl.textContent = 'Stopped';
+      updateUI();
+    });
+
+    engine.on('trackStart', (track) => {
+      statusEl.textContent = `Now playing: ${track.title}`;
+      updateQueue();
+    });
+
+    engine.on('trackEnd', (track) => {
+      statusEl.textContent = `Finished: ${track.title}`;
+    });
+
+    engine.on('error', (error) => {
+      statusEl.textContent = `Error: ${error.message}`;
+      console.error('Audio error:', error);
+    });
+
+    // Control buttons
+    playBtn.addEventListener('click', () => engine.play());
+    pauseBtn.addEventListener('click', () => engine.pause());
+    stopBtn.addEventListener('click', () => engine.stop());
+    nextBtn.addEventListener('click', () => engine.next());
+    prevBtn.addEventListener('click', () => engine.previous());
+    shuffleBtn.addEventListener('click', () => engine.shuffle());
+
+    // Filter buttons
+    bassboostBtn.addEventListener('click', () => {
+      engine.applyFilter('bassboost', { gain: 1.5 });
+      statusEl.textContent = 'Applied bass boost filter';
+    });
+
+    nightcoreBtn.addEventListener('click', () => {
+      engine.applyFilter('nightcore', { rate: 1.2 });
+      statusEl.textContent = 'Applied nightcore filter';
+    });
+
+    vaporwaveBtn.addEventListener('click', () => {
+      engine.applyFilter('vaporwave', { rate: 0.8 });
+      statusEl.textContent = 'Applied vaporwave filter';
+    });
+
+    eightDBtn.addEventListener('click', () => {
+      engine.applyFilter('8d');
+      statusEl.textContent = 'Applied 8D audio filter';
+    });
+
+    clearFiltersBtn.addEventListener('click', () => {
+      // Note: In a real implementation, you'd need to clear filters
+      statusEl.textContent = 'Filters cleared';
+    });
+
+    // Add track
+    addBtn.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      if (url) {
+        engine.add(url);
+        urlInput.value = '';
+        updateQueue();
+        statusEl.textContent = 'Track added to queue';
+      }
+    });
+
+    // Allow Enter key in input
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addBtn.click();
+      }
+    });
+
+    function updateUI() {
+      const state = engine.getState();
+      playBtn.disabled = state.isPlaying;
+      pauseBtn.disabled = !state.isPlaying;
+      stopBtn.disabled = !state.isPlaying;
+    }
+
+    function updateQueue() {
+      const tracks = engine.queue.getTracks();
+      const currentTrack = engine.queue.getCurrent();
+
+      queueListEl.innerHTML = tracks.map((track, index) => `
+        <div class="track ${currentTrack && currentTrack.id === track.id ? 'current-track' : ''}">
+          ${index + 1}. ${track.title}
+        </div>
+      `).join('');
+    }
+
+    // Add some demo tracks
+    setTimeout(() => {
+      if (engine.queue.size() === 0) {
+        engine.add([
+          'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
+          'https://www.soundjay.com/misc/sounds/bell-ringing-04.wav'
+        ]);
+        updateQueue();
+        statusEl.textContent = 'Demo tracks added! Click Play to start.';
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

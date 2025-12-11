@@ -250,6 +250,15 @@ const probe = await ProbeUtils.probe(audioBuffer);
 
 ## Examples
 
+The `examples/` directory contains comprehensive examples demonstrating various features:
+
+### 📁 Available Examples
+
+- **`browser-example.html`** - Interactive browser demo with UI controls
+- **`nodejs-example.js`** - Node.js usage with event handling
+- **`queue-example.js`** - Queue management operations
+- **`plugin-examples.js`** - Custom plugin implementations
+
 ### Basic Playback
 
 ```javascript
@@ -291,15 +300,46 @@ engine.add([
   { url: 'song2.mp3', title: 'Song Two' }
 ]);
 
-// Skip to next
+// Navigation
 engine.next();
+engine.previous();
+engine.jump(2); // Jump to track at index 2
 
-// Shuffle queue
+// Modify queue
 engine.shuffle();
-
-// Clear and add new tracks
 engine.clear();
-engine.add('new-song.mp3');
+
+// Remove specific track
+engine.remove(0); // Remove by index
+engine.remove('track-id'); // Remove by ID
+```
+
+### Audio Filters
+
+```javascript
+// Bass boost
+engine.applyFilter('bassboost', { gain: 1.5 });
+
+// Nightcore effect
+engine.applyFilter('nightcore', { rate: 1.2 });
+
+// Vaporwave effect
+engine.applyFilter('vaporwave', { rate: 0.8 });
+
+// 8D Audio
+engine.applyFilter('8d');
+
+// Pitch adjustment
+engine.applyFilter('pitch', { pitch: 1.1 });
+
+// Speed adjustment
+engine.applyFilter('speed', { speed: 1.25 });
+
+// Reverb
+engine.applyFilter('reverb', { preset: 'hall' });
+
+// Remove filter
+engine.removeFilter('bassboost');
 ```
 
 ### Custom Plugin
@@ -329,6 +369,46 @@ class LoggerPlugin extends Plugin {
 const loggerPlugin = new LoggerPlugin();
 engine.pluginManager.load(loggerPlugin);
 engine.pluginManager.enable('logger');
+```
+
+### Browser Usage
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>audify-js Demo</title>
+</head>
+<body>
+  <button id="playBtn">Play</button>
+  <button id="bassBtn">Bass Boost</button>
+
+  <script type="module">
+    import { AudioEngine } from '@students-dev/audify-js';
+
+    const engine = new AudioEngine();
+
+    engine.on('ready', () => {
+      engine.add('audio.mp3');
+
+      document.getElementById('playBtn').onclick = () => engine.play();
+      document.getElementById('bassBtn').onclick = () =>
+        engine.applyFilter('bassboost');
+    });
+  </script>
+</body>
+</html>
+```
+
+### Running Examples
+
+```bash
+# Browser example
+# Open examples/browser-example.html in your browser
+
+# Node.js examples
+node examples/nodejs-example.js
+node examples/queue-example.js
 ```
 
 ## Browser Compatibility
