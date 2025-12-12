@@ -19,5 +19,5 @@ export default {
     resolve(),
     commonjs()
   ],
-  external: []
+  external: ['spotify-web-api-node', 'lavalink-client']
 };
