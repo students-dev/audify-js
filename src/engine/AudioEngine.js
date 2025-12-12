@@ -1,8 +1,11 @@
 import { Player } from './Player.js';
 import { Filters } from './Filters.js';
 import { Queue } from '../queue/Queue.js';
+import { Track } from '../queue/Track.js';
 import { EventBus } from '../events/EventBus.js';
-import { EVENTS } from '../constants/Modes.js';
+import { SpotifyProvider } from '../providers/SpotifyProvider.js';
+import { LavalinkProvider } from '../providers/LavalinkProvider.js';
+import { EVENTS, LOOP_MODES } from '../constants/Modes.js';
 
 /**
  * Main audio engine class
@@ -15,6 +18,8 @@ export class AudioEngine {
     this.filters = null;
     this.queue = new Queue();
     this.eventBus = new EventBus();
+    this.spotifyProvider = null;
+    this.lavalinkProvider = null;
     this.isReady = false;
 
     this.initialize();
@@ -198,6 +203,100 @@ export class AudioEngine {
   }
 
   /**
+   * Initialize Spotify provider
+   * @param {Object} options - Spotify options
+   */
+  initSpotify(options = {}) {
+    this.spotifyProvider = new SpotifyProvider(options);
+  }
+
+  /**
+   * Load Spotify track and add to queue
+   * @param {string} trackId - Spotify track ID
+   * @param {Object} options - Options including token
+   * @returns {Promise<Track>} Added track
+   */
+  async loadSpotifyTrack(trackId, options = {}) {
+    if (!this.spotifyProvider) {
+      throw new Error('Spotify provider not initialized');
+    }
+
+    if (options.token) {
+      this.spotifyProvider.setAccessToken(options.token);
+    }
+
+    const trackData = await this.spotifyProvider.getTrack(trackId);
+    const track = new Track(trackData.url, trackData);
+    this.add(track);
+    return track;
+  }
+
+  /**
+   * Search Spotify tracks
+   * @param {string} query - Search query
+   * @param {Object} options - Search options
+   * @returns {Promise<Array>} Search results
+   */
+  async searchSpotifyTracks(query, options = {}) {
+    if (!this.spotifyProvider) {
+      throw new Error('Spotify provider not initialized');
+    }
+
+    if (options.token) {
+      this.spotifyProvider.setAccessToken(options.token);
+    }
+
+    return await this.spotifyProvider.searchTracks(query, options);
+  }
+
+  /**
+   * Connect to Lavalink server
+   * @param {Object} options - Lavalink connection options
+   * @returns {Promise<void>}
+   */
+  async connectLavalink(options = {}) {
+    this.lavalinkProvider = new LavalinkProvider(options);
+    await this.lavalinkProvider.connect();
+  }
+
+  /**
+   * Load Lavalink track and add to queue
+   * @param {string} identifier - Track identifier
+   * @returns {Promise<Track|Array<Track>>} Added track(s)
+   */
+  async loadLavalinkTrack(identifier) {
+    if (!this.lavalinkProvider) {
+      throw new Error('Lavalink provider not connected');
+    }
+
+    const trackData = await this.lavalinkProvider.loadTrack(identifier);
+
+    if (Array.isArray(trackData)) {
+      const tracks = trackData.map(data => new Track(data.url, data));
+      this.add(tracks);
+      return tracks;
+    } else {
+      const track = new Track(trackData.url, trackData);
+      this.add(track);
+      return track;
+    }
+  }
+
+  /**
+   * Get Lavalink player for guild/channel
+   * @param {string} guildId - Guild ID
+   * @param {string} channelId - Voice channel ID
+   * @returns {Object} Lavalink player
+   */
+  getLavalinkPlayer(guildId, channelId) {
+    if (!this.lavalinkProvider) {
+      throw new Error('Lavalink provider not connected');
+    }
+
+    return this.lavalinkProvider.createPlayer(guildId, channelId);
+  }
+
+  /**
    * Destroy the engine
    */
   destroy() {
@@ -206,5 +305,8 @@ export class AudioEngine {
     }
     this.filters.clear();
     this.player.stop();
+    if (this.lavalinkProvider) {
+      this.lavalinkProvider.disconnect();
+    }
   }
 }
