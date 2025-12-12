@@ -9,6 +9,8 @@ export class AudioEngine {
     filters: Filters;
     queue: Queue;
     eventBus: EventBus;
+    spotifyProvider: SpotifyProvider;
+    lavalinkProvider: LavalinkProvider;
     isReady: boolean;
     /**
      * Initialize the audio engine
@@ -46,7 +48,7 @@ export class AudioEngine {
      * Remove track from queue
      * @param {number|string} identifier - Track index or ID
      */
-    remove(identifier: number | string): import("../index.js").Track;
+    remove(identifier: number | string): Track;
     /**
      * Skip to next track
      */
@@ -90,6 +92,44 @@ export class AudioEngine {
      */
     getState(): any;
     /**
+     * Initialize Spotify provider
+     * @param {Object} options - Spotify options
+     */
+    initSpotify(options?: any): void;
+    /**
+     * Load Spotify track and add to queue
+     * @param {string} trackId - Spotify track ID
+     * @param {Object} options - Options including token
+     * @returns {Promise<Track>} Added track
+     */
+    loadSpotifyTrack(trackId: string, options?: any): Promise<Track>;
+    /**
+     * Search Spotify tracks
+     * @param {string} query - Search query
+     * @param {Object} options - Search options
+     * @returns {Promise<Array>} Search results
+     */
+    searchSpotifyTracks(query: string, options?: any): Promise<any[]>;
+    /**
+     * Connect to Lavalink server
+     * @param {Object} options - Lavalink connection options
+     * @returns {Promise<void>}
+     */
+    connectLavalink(options?: any): Promise<void>;
+    /**
+     * Load Lavalink track and add to queue
+     * @param {string} identifier - Track identifier
+     * @returns {Promise<Track|Array<Track>>} Added track(s)
+     */
+    loadLavalinkTrack(identifier: string): Promise<Track | Array<Track>>;
+    /**
+     * Get Lavalink player for guild/channel
+     * @param {string} guildId - Guild ID
+     * @param {string} channelId - Voice channel ID
+     * @returns {Object} Lavalink player
+     */
+    getLavalinkPlayer(guildId: string, channelId: string): any;
+    /**
      * Destroy the engine
      */
     destroy(): void;
@@ -98,3 +138,6 @@ import { Player } from './Player.js';
 import { Filters } from './Filters.js';
 import { Queue } from '../queue/Queue.js';
 import { EventBus } from '../events/EventBus.js';
+import { SpotifyProvider } from '../providers/SpotifyProvider.js';
+import { LavalinkProvider } from '../providers/LavalinkProvider.js';
+import { Track } from '../queue/Track.js';

@@ -12,7 +12,7 @@ A lightweight, modern, modular audio engine that provides playback, filters, que
 - 🎛️ **Audio Filters**: Bassboost, nightcore, vaporwave, 8D rotate, pitch/speed adjustment, reverb
 - 🔌 **Plugin System**: Extensible architecture with lifecycle hooks
 - 📡 **Event-Driven**: Comprehensive event system for all operations
-- 🌐 **Multi-Source Support**: Local files, remote URLs, YouTube, SoundCloud
+- 🌐 **Multi-Source Support**: Local files, remote URLs, YouTube, SoundCloud, Spotify, Lavalink
 - 🛠️ **Developer-Friendly**: TypeScript declarations, ESM/CJS builds
 
 ## Installation
@@ -74,6 +74,39 @@ The main class that orchestrates all audio functionality.
 
 ```javascript
 const engine = new AudioEngine(options);
+```
+
+#### Spotify Integration
+
+```javascript
+// Initialize Spotify provider
+engine.initSpotify({
+  clientId: 'your_client_id',
+  clientSecret: 'your_client_secret'
+});
+
+// Search tracks
+const results = await engine.searchSpotifyTracks('query', { token: 'access_token' });
+
+// Load track
+const track = await engine.loadSpotifyTrack('track_id', { token: 'access_token' });
+```
+
+#### Lavalink Integration
+
+```javascript
+// Connect to Lavalink server
+await engine.connectLavalink({
+  host: 'localhost',
+  port: 2333,
+  password: 'youshallnotpass'
+});
+
+// Load track from Lavalink
+const track = await engine.loadLavalinkTrack('ytsearch:query');
+
+// Get Lavalink player for Discord bots
+const player = engine.getLavalinkPlayer('guild_id', 'channel_id');
 ```
 
 #### Methods
@@ -219,7 +252,7 @@ engine.pluginManager.enable('my-plugin');
 Fetch metadata from different sources.
 
 ```javascript
-import { YouTubeProvider, SoundCloudProvider, LocalProvider } from '@students-dev/audify-js';
+import { YouTubeProvider, SoundCloudProvider, LocalProvider, SpotifyProvider, LavalinkProvider } from '@students-dev/audify-js';
 
 // YouTube
 const ytInfo = await YouTubeProvider.getInfo('https://youtube.com/watch?v=VIDEO_ID');
@@ -229,6 +262,16 @@ const scInfo = await SoundCloudProvider.getInfo('https://soundcloud.com/artist/t
 
 // Local file (Node.js only)
 const localInfo = await LocalProvider.getInfo('/path/to/file.mp3');
+
+// Spotify (requires access token)
+const spotify = new SpotifyProvider({ clientId: 'your_client_id' });
+spotify.setAccessToken('access_token');
+const trackInfo = await spotify.getTrack('track_id');
+
+// Lavalink (requires Lavalink server)
+const lavalink = new LavalinkProvider({ host: 'localhost', port: 2333, password: 'password' });
+await lavalink.connect();
+const lavalinkTrack = await lavalink.loadTrack('ytsearch:query');
 ```
 
 ### Utils
@@ -258,6 +301,8 @@ The `examples/` directory contains comprehensive examples demonstrating various 
 - **`nodejs-example.js`** - Node.js usage with event handling
 - **`queue-example.js`** - Queue management operations
 - **`plugin-examples.js`** - Custom plugin implementations
+- **`spotify-example.js`** - Spotify API integration
+- **`lavalink-example.js`** - Lavalink server integration
 
 ### Basic Playback
 
@@ -464,6 +509,13 @@ For actual audio playback in Node.js, you may need additional packages like `spe
 Some filters require AudioWorklet support in modern browsers. Check browser compatibility.
 
 ## Changelog
+
+### v1.1.0
+- Added Spotify integration with client-side API support
+- Added Lavalink integration for server-based audio streaming
+- Updated dependencies for better performance and security
+- Enhanced TypeScript type definitions
+- Added comprehensive examples for new integrations
 
 ### v1.0.0
 - Initial release

@@ -1,10 +1,12 @@
+import SpotifyWebApi from 'spotify-web-api-node';
+import { LavalinkManager } from 'lavalink-client';
 import { promises } from 'fs';
 import { extname } from 'path';
 
 /**
  * Loop modes for playback
  */
-const LOOP_MODES$1 = {
+const LOOP_MODES = {
   OFF: 'off',
   TRACK: 'track',
   QUEUE: 'queue'
@@ -13,7 +15,7 @@ const LOOP_MODES$1 = {
 /**
  * Repeat modes (alias for loop modes)
  */
-const REPEAT_MODES = LOOP_MODES$1;
+const REPEAT_MODES = LOOP_MODES;
 
 /**
  * Filter types
@@ -124,7 +126,7 @@ class Player {
     this.currentTime = 0;
     this.duration = 0;
     this.volume = 1;
-    this.loopMode = LOOP_MODES$1.OFF;
+    this.loopMode = LOOP_MODES.OFF;
     this.eventBus = new EventBus();
   }
 
@@ -237,14 +239,14 @@ class Player {
    */
   handleTrackEnd() {
     switch (this.loopMode) {
-      case LOOP_MODES$1.TRACK:
+      case LOOP_MODES.TRACK:
         // Replay current track
         break;
-      case LOOP_MODES$1.QUEUE:
+      case LOOP_MODES.QUEUE:
         // Play next in queue
         this.audioEngine.queue.getNext();
         break;
-      case LOOP_MODES$1.OFF:
+      case LOOP_MODES.OFF:
     }
   }
 
@@ -739,6 +741,276 @@ class Queue {
 }
 
 /**
+ * Spotify provider for client-side API integration
+ */
+class SpotifyProvider {
+  constructor(options = {}) {
+    this.spotifyApi = new SpotifyWebApi({
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      redirectUri: options.redirectUri,
+      accessToken: options.accessToken,
+      refreshToken: options.refreshToken
+    });
+  }
+
+  /**
+   * Set access token
+   * @param {string} token - OAuth access token
+   */
+  setAccessToken(token) {
+    this.spotifyApi.setAccessToken(token);
+  }
+
+  /**
+   * Set refresh token
+   * @param {string} token - OAuth refresh token
+   */
+  setRefreshToken(token) {
+    this.spotifyApi.setRefreshToken(token);
+  }
+
+  /**
+   * Refresh access token
+   * @returns {Promise<Object>} Token response
+   */
+  async refreshAccessToken() {
+    try {
+      const data = await this.spotifyApi.refreshAccessToken();
+      this.spotifyApi.setAccessToken(data.body.access_token);
+      return data.body;
+    } catch (error) {
+      throw new Error(`Failed to refresh token: ${error.message}`);
+    }
+  }
+
+  /**
+   * Search tracks
+   * @param {string} query - Search query
+   * @param {Object} options - Search options
+   * @returns {Promise<Array>} Array of track objects
+   */
+  async searchTracks(query, options = {}) {
+    try {
+      const data = await this.spotifyApi.searchTracks(query, {
+        limit: options.limit || 20,
+        offset: options.offset || 0
+      });
+
+      return data.body.tracks.items.map(track => this._formatTrack(track));
+    } catch (error) {
+      throw new Error(`Failed to search tracks: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get track by ID
+   * @param {string} trackId - Spotify track ID
+   * @returns {Promise<Object>} Track object
+   */
+  async getTrack(trackId) {
+    try {
+      const data = await this.spotifyApi.getTrack(trackId);
+      return this._formatTrack(data.body);
+    } catch (error) {
+      throw new Error(`Failed to get track: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get tracks by IDs
+   * @param {Array<string>} trackIds - Array of Spotify track IDs
+   * @returns {Promise<Array>} Array of track objects
+   */
+  async getTracks(trackIds) {
+    try {
+      const data = await this.spotifyApi.getTracks(trackIds);
+      return data.body.tracks.map(track => this._formatTrack(track));
+    } catch (error) {
+      throw new Error(`Failed to get tracks: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get audio features for track
+   * @param {string} trackId - Spotify track ID
+   * @returns {Promise<Object>} Audio features
+   */
+  async getAudioFeatures(trackId) {
+    try {
+      const data = await this.spotifyApi.getAudioFeaturesForTrack(trackId);
+      return data.body;
+    } catch (error) {
+      throw new Error(`Failed to get audio features: ${error.message}`);
+    }
+  }
+
+  /**
+   * Format Spotify track to internal format
+   * @param {Object} spotifyTrack - Spotify track object
+   * @returns {Object} Formatted track
+   * @private
+   */
+  _formatTrack(spotifyTrack) {
+    return {
+      id: spotifyTrack.id,
+      title: spotifyTrack.name,
+      artist: spotifyTrack.artists.map(artist => artist.name).join(', '),
+      duration: Math.floor(spotifyTrack.duration_ms / 1000),
+      thumbnail: spotifyTrack.album.images[0]?.url,
+      url: spotifyTrack.external_urls.spotify,
+      source: 'spotify',
+      album: spotifyTrack.album.name,
+      popularity: spotifyTrack.popularity,
+      preview_url: spotifyTrack.preview_url,
+      metadata: {
+        spotifyId: spotifyTrack.id,
+        artists: spotifyTrack.artists,
+        album: spotifyTrack.album
+      }
+    };
+  }
+}
+
+/**
+ * Lavalink provider for connecting to Lavalink server
+ */
+class LavalinkProvider {
+  constructor(options = {}) {
+    this.host = options.host || 'localhost';
+    this.port = options.port || 2333;
+    this.password = options.password || 'youshallnotpass';
+    this.secure = options.secure || false;
+    this.manager = null;
+    this.node = null;
+    this.isConnected = false;
+  }
+
+  /**
+   * Connect to Lavalink server
+   * @returns {Promise<void>}
+   */
+  async connect() {
+    try {
+      this.manager = new LavalinkManager({
+        nodes: [{
+          host: this.host,
+          port: this.port,
+          password: this.password,
+          secure: this.secure,
+          id: 'main'
+        }],
+        sendToShard: (guildId, payload) => {
+          // This would need to be implemented to send to Discord gateway
+          // For now, this is a placeholder
+          console.log('Send to shard:', guildId, payload);
+        }
+      });
+
+      await this.manager.connect();
+      this.node = this.manager.nodes.get('main');
+      this.isConnected = true;
+    } catch (error) {
+      throw new Error(`Failed to connect to Lavalink: ${error.message}`);
+    }
+  }
+
+  /**
+   * Disconnect from Lavalink server
+   */
+  disconnect() {
+    if (this.manager) {
+      this.manager.destroy();
+      this.isConnected = false;
+    }
+  }
+
+  /**
+   * Create a player for a guild/channel
+   * @param {string} guildId - Guild ID
+   * @param {string} channelId - Voice channel ID
+   * @returns {Object} Player instance
+   */
+  createPlayer(guildId, channelId) {
+    if (!this.isConnected) {
+      throw new Error('Not connected to Lavalink');
+    }
+
+    return this.manager.createPlayer({
+      guildId,
+      voiceChannelId: channelId,
+      textChannelId: channelId, // Optional
+      selfDeaf: false,
+      selfMute: false
+    });
+  }
+
+  /**
+   * Load track from Lavalink
+   * @param {string} identifier - Track identifier (URL or search query)
+   * @returns {Promise<Object>} Track info
+   */
+  async loadTrack(identifier) {
+    if (!this.isConnected) {
+      throw new Error('Not connected to Lavalink');
+    }
+
+    try {
+      const result = await this.node.rest.loadTracks(identifier);
+
+      if (result.loadType === 'TRACK_LOADED') {
+        return this._formatTrack(result.tracks[0]);
+      } else if (result.loadType === 'PLAYLIST_LOADED') {
+        return result.tracks.map(track => this._formatTrack(track));
+      } else if (result.loadType === 'SEARCH_RESULT') {
+        return result.tracks.map(track => this._formatTrack(track));
+      } else {
+        throw new Error('No tracks found');
+      }
+    } catch (error) {
+      throw new Error(`Failed to load track: ${error.message}`);
+    }
+  }
+
+  /**
+   * Format Lavalink track to internal format
+   * @param {Object} lavalinkTrack - Lavalink track object
+   * @returns {Object} Formatted track
+   * @private
+   */
+  _formatTrack(lavalinkTrack) {
+    const info = lavalinkTrack.info;
+    return {
+      id: lavalinkTrack.track,
+      title: info.title,
+      artist: info.author,
+      duration: Math.floor(info.length / 1000),
+      thumbnail: info.artworkUrl,
+      url: info.uri,
+      source: 'lavalink',
+      isrc: info.isrc,
+      metadata: {
+        lavalinkTrack: lavalinkTrack.track,
+        identifier: info.identifier,
+        sourceName: info.sourceName
+      }
+    };
+  }
+
+  /**
+   * Get node stats
+   * @returns {Promise<Object>} Node stats
+   */
+  async getStats() {
+    if (!this.isConnected) {
+      throw new Error('Not connected to Lavalink');
+    }
+
+    return await this.node.rest.getStats();
+  }
+}
+
+/**
  * Main audio engine class
  */
 class AudioEngine {
@@ -749,6 +1021,8 @@ class AudioEngine {
     this.filters = null;
     this.queue = new Queue();
     this.eventBus = new EventBus();
+    this.spotifyProvider = null;
+    this.lavalinkProvider = null;
     this.isReady = false;
 
     this.initialize();
@@ -932,6 +1206,100 @@ class AudioEngine {
   }
 
   /**
+   * Initialize Spotify provider
+   * @param {Object} options - Spotify options
+   */
+  initSpotify(options = {}) {
+    this.spotifyProvider = new SpotifyProvider(options);
+  }
+
+  /**
+   * Load Spotify track and add to queue
+   * @param {string} trackId - Spotify track ID
+   * @param {Object} options - Options including token
+   * @returns {Promise<Track>} Added track
+   */
+  async loadSpotifyTrack(trackId, options = {}) {
+    if (!this.spotifyProvider) {
+      throw new Error('Spotify provider not initialized');
+    }
+
+    if (options.token) {
+      this.spotifyProvider.setAccessToken(options.token);
+    }
+
+    const trackData = await this.spotifyProvider.getTrack(trackId);
+    const track = new Track(trackData.url, trackData);
+    this.add(track);
+    return track;
+  }
+
+  /**
+   * Search Spotify tracks
+   * @param {string} query - Search query
+   * @param {Object} options - Search options
+   * @returns {Promise<Array>} Search results
+   */
+  async searchSpotifyTracks(query, options = {}) {
+    if (!this.spotifyProvider) {
+      throw new Error('Spotify provider not initialized');
+    }
+
+    if (options.token) {
+      this.spotifyProvider.setAccessToken(options.token);
+    }
+
+    return await this.spotifyProvider.searchTracks(query, options);
+  }
+
+  /**
+   * Connect to Lavalink server
+   * @param {Object} options - Lavalink connection options
+   * @returns {Promise<void>}
+   */
+  async connectLavalink(options = {}) {
+    this.lavalinkProvider = new LavalinkProvider(options);
+    await this.lavalinkProvider.connect();
+  }
+
+  /**
+   * Load Lavalink track and add to queue
+   * @param {string} identifier - Track identifier
+   * @returns {Promise<Track|Array<Track>>} Added track(s)
+   */
+  async loadLavalinkTrack(identifier) {
+    if (!this.lavalinkProvider) {
+      throw new Error('Lavalink provider not connected');
+    }
+
+    const trackData = await this.lavalinkProvider.loadTrack(identifier);
+
+    if (Array.isArray(trackData)) {
+      const tracks = trackData.map(data => new Track(data.url, data));
+      this.add(tracks);
+      return tracks;
+    } else {
+      const track = new Track(trackData.url, trackData);
+      this.add(track);
+      return track;
+    }
+  }
+
+  /**
+   * Get Lavalink player for guild/channel
+   * @param {string} guildId - Guild ID
+   * @param {string} channelId - Voice channel ID
+   * @returns {Object} Lavalink player
+   */
+  getLavalinkPlayer(guildId, channelId) {
+    if (!this.lavalinkProvider) {
+      throw new Error('Lavalink provider not connected');
+    }
+
+    return this.lavalinkProvider.createPlayer(guildId, channelId);
+  }
+
+  /**
    * Destroy the engine
    */
   destroy() {
@@ -940,6 +1308,9 @@ class AudioEngine {
     }
     this.filters.clear();
     this.player.stop();
+    if (this.lavalinkProvider) {
+      this.lavalinkProvider.disconnect();
+    }
   }
 }
 
@@ -1473,5 +1844,5 @@ class LocalProvider {
   }
 }
 
-export { AudioEngine, EVENTS, EventBus, FILTER_TYPES, LOOP_MODES$1 as LOOP_MODES, LocalProvider, Logger, MetadataUtils, PluginManager, ProbeUtils, Queue, REPEAT_MODES, SoundCloudProvider, TimeUtils, Track, YouTubeProvider };
+export { AudioEngine, EVENTS, EventBus, FILTER_TYPES, LOOP_MODES, LavalinkProvider, LocalProvider, Logger, MetadataUtils, PluginManager, ProbeUtils, Queue, REPEAT_MODES, SoundCloudProvider, SpotifyProvider, TimeUtils, Track, YouTubeProvider };
 //# sourceMappingURL=index.js.map
