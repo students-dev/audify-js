@@ -1,6 +1,6 @@
 {
   "name": "@students-dev/audify-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Modern modular audio engine with queue, filters, plugin API, and event-driven design.",
   "type": "module",
   "main": "dist/cjs/index.js",
