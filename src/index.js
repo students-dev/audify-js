@@ -10,4 +10,6 @@ export { ProbeUtils } from './utils/Probe.js';
 export { YouTubeProvider } from './providers/YouTubeProvider.js';
 export { SoundCloudProvider } from './providers/SoundCloudProvider.js';
 export { LocalProvider } from './providers/LocalProvider.js';
+export { SpotifyProvider } from './providers/SpotifyProvider.js';
+export { LavalinkProvider } from './providers/LavalinkProvider.js';
 export * from './constants/Modes.js';

@@ -4,7 +4,12 @@ module.exports = {
   testMatch: ['**/?(*.)+(spec|test).js'],
   collectCoverageFrom: ['src/**/*.js'],
   extensionsToTreatAsEsm: ['.js'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+    },
+  },
   transformIgnorePatterns: [
-    'node_modules/(?!(supertest)/)'
+    'node_modules/(?!(spotify-web-api-node|lavalink-client)/)'
   ]
 };
