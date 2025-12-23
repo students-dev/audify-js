@@ -1,35 +1,36 @@
+import { ITrack } from '../interfaces';
 /**
  * Metadata parsing utilities
  */
-export class MetadataUtils {
+export declare class MetadataUtils {
     /**
      * Extract basic metadata from URL or file path
-     * @param {string} source - URL or file path
-     * @returns {Object} Metadata object
+     * @param source - URL or file path
+     * @returns Metadata object
      */
-    static extract(source: string): any;
+    static extract(source: string): Partial<ITrack>;
     /**
      * Extract title from source
-     * @param {string} source - Source string
-     * @returns {string} Extracted title
+     * @param source - Source string
+     * @returns Extracted title
      */
     static extractTitle(source: string): string;
     /**
      * Extract YouTube metadata (basic)
-     * @param {string} url - YouTube URL
-     * @returns {Object} Metadata
+     * @param url - YouTube URL
+     * @returns Metadata
      */
-    static extractYouTubeMetadata(url: string): any;
+    private static extractYouTubeMetadata;
     /**
      * Extract SoundCloud metadata (basic)
-     * @param {string} url - SoundCloud URL
-     * @returns {Object} Metadata
+     * @param url - SoundCloud URL
+     * @returns Metadata
      */
-    static extractSoundCloudMetadata(url: string): any;
+    private static extractSoundCloudMetadata;
     /**
      * Extract file metadata (basic)
-     * @param {string} path - File path
-     * @returns {Object} Metadata
+     * @param path - File path
+     * @returns Metadata
      */
-    static extractFileMetadata(path: string): any;
+    private static extractFileMetadata;
 }

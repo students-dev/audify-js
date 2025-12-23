@@ -1,8 +1,9 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
 
 export default {
-  input: 'src/index.js',
+  input: 'src/index.ts',
   output: [
     {
       file: 'dist/esm/index.js',
@@ -17,7 +18,12 @@ export default {
   ],
   plugins: [
     resolve(),
-    commonjs()
+    commonjs(),
+    typescript({ 
+      tsconfig: './tsconfig.json', 
+      declaration: false,
+      declarationDir: undefined
+    })
   ],
   external: ['spotify-web-api-node', 'lavalink-client']
 };

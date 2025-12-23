@@ -1,20 +1,24 @@
+import { Track } from './Track';
+import { EventBus } from '../events/EventBus';
+import { ITrack } from '../interfaces';
 /**
  * Audio queue management
  */
-export class Queue {
-    tracks: any[];
-    currentIndex: number;
+export declare class Queue {
+    private tracks;
+    private currentIndex;
     eventBus: EventBus;
+    constructor();
     /**
      * Add track(s) to queue
-     * @param {Track|Track[]|string|string[]} tracks - Track(s) to add
-     * @param {number} position - Position to insert (optional)
+     * @param tracks - Track(s) to add
+     * @param position - Position to insert (optional)
      */
-    add(tracks: Track | Track[] | string | string[], position: number): void;
+    add(tracks: Track | ITrack | (Track | ITrack)[] | string | string[], position?: number): void;
     /**
      * Remove track from queue
-     * @param {number|string} identifier - Track index or ID
-     * @returns {Track|null} Removed track
+     * @param identifier - Track index or ID
+     * @returns Removed track
      */
     remove(identifier: number | string): Track | null;
     /**
@@ -27,46 +31,48 @@ export class Queue {
     clear(): void;
     /**
      * Jump to specific track
-     * @param {number} index - Track index
-     * @returns {Track|null} Track at index
+     * @param index - Track index
+     * @returns Track at index
      */
     jump(index: number): Track | null;
     /**
      * Get current track
-     * @returns {Track|null} Current track
+     * @returns Current track
      */
     getCurrent(): Track | null;
     /**
      * Get next track
-     * @returns {Track|null} Next track
+     * Moves cursor forward
+     * @param loop - Whether to loop back to start
+     * @returns Next track
      */
-    getNext(): Track | null;
+    next(loop?: boolean): Track | null;
     /**
      * Get previous track
-     * @returns {Track|null} Previous track
+     * Moves cursor backward
+     * @param loop - Whether to loop to end
+     * @returns Previous track
      */
-    getPrevious(): Track | null;
+    previous(loop?: boolean): Track | null;
     /**
      * Get all tracks
-     * @returns {Track[]} Array of tracks
+     * @returns Array of tracks
      */
     getTracks(): Track[];
     /**
      * Get queue size
-     * @returns {number} Number of tracks
+     * @returns Number of tracks
      */
     size(): number;
     /**
      * Check if queue is empty
-     * @returns {boolean} Is empty
+     * @returns Is empty
      */
     isEmpty(): boolean;
     /**
      * Get track at index
-     * @param {number} index - Track index
-     * @returns {Track|null} Track at index
+     * @param index - Track index
+     * @returns Track at index
      */
     getTrack(index: number): Track | null;
 }
-import { EventBus } from '../events/EventBus.js';
-import { Track } from './Track.js';

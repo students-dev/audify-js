@@ -1,51 +1,51 @@
+import { IPlugin, IAudioEngine } from '../interfaces';
 /**
  * Plugin manager for loading and managing plugins
  */
-export class PluginManager {
-    constructor(audioEngine: any);
-    engine: any;
-    plugins: Map<any, any>;
+export declare class PluginManager {
+    private engine;
+    private plugins;
+    constructor(engine: IAudioEngine);
     /**
      * Load a plugin
-     * @param {Plugin} plugin - Plugin instance
+     * @param plugin - Plugin instance
      */
-    load(plugin: Plugin): void;
+    load(plugin: IPlugin): void;
     /**
      * Enable a plugin
-     * @param {string} name - Plugin name
+     * @param name - Plugin name
      */
     enable(name: string): void;
     /**
      * Disable a plugin
-     * @param {string} name - Plugin name
+     * @param name - Plugin name
      */
     disable(name: string): void;
     /**
      * Unload a plugin
-     * @param {string} name - Plugin name
+     * @param name - Plugin name
      */
     unload(name: string): void;
     /**
      * Get plugin by name
-     * @param {string} name - Plugin name
-     * @returns {Plugin|null} Plugin instance
+     * @param name - Plugin name
+     * @returns Plugin instance
      */
-    get(name: string): Plugin | null;
+    get(name: string): IPlugin | undefined;
     /**
      * Get all plugins
-     * @returns {Map} Map of plugins
+     * @returns Map of plugins
      */
-    getAll(): Map<any, any>;
+    getAll(): Map<string, IPlugin>;
     /**
      * Get enabled plugins
-     * @returns {Plugin[]} Array of enabled plugins
+     * @returns Array of enabled plugins
      */
-    getEnabled(): Plugin[];
+    getEnabled(): IPlugin[];
     /**
      * Call hook on all enabled plugins
-     * @param {string} hook - Hook name
-     * @param {...*} args - Arguments to pass
+     * @param hook - Hook name
+     * @param args - Arguments to pass
      */
     callHook(hook: string, ...args: any[]): void;
 }
-import { Plugin } from './Plugin.js';

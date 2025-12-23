@@ -1,49 +1,17 @@
-/**
- * Base plugin class
- */
-export class Plugin {
-    constructor(name: any, version?: string);
-    name: any;
+import { IPlugin, IAudioEngine } from '../interfaces';
+export declare abstract class Plugin implements IPlugin {
+    name: string;
     version: string;
     enabled: boolean;
     loaded: boolean;
-    /**
-     * Called when plugin is loaded
-     * @param {AudioEngine} engine - Audio engine instance
-     */
-    onLoad(engine: AudioEngine): void;
-    engine: AudioEngine;
-    /**
-     * Called when plugin is enabled
-     */
+    protected engine?: IAudioEngine;
+    constructor(name: string, version?: string);
+    onLoad(engine: IAudioEngine): void;
+    onUnload(): void;
     onEnable(): void;
-    /**
-     * Called when plugin is disabled
-     */
     onDisable(): void;
-    /**
-     * Hook called before play
-     * @param {Track} track - Track being played
-     */
-    beforePlay(track: Track): void;
-    /**
-     * Hook called after play
-     * @param {Track} track - Track being played
-     */
-    afterPlay(track: Track): void;
-    /**
-     * Hook called when track ends
-     * @param {Track} track - Track that ended
-     */
-    trackEnd(track: Track): void;
-    /**
-     * Hook called when queue updates
-     * @param {Queue} queue - Updated queue
-     */
-    queueUpdate(queue: Queue): void;
-    /**
-     * Get plugin info
-     * @returns {Object} Plugin information
-     */
-    getInfo(): any;
+    beforePlay(track: any): void;
+    afterPlay(track: any): void;
+    trackEnd(track: any): void;
+    queueUpdate(queue: any): void;
 }

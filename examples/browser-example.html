@@ -97,7 +97,7 @@
   </div>
 
   <script type="module">
-    import { AudioEngine } from '@students-dev/audify-js';
+    import { AudioEngine } from '../dist/esm/index.js';
 
     const engine = new AudioEngine();
     const statusEl = document.getElementById('status');
@@ -119,37 +119,41 @@
     const urlInput = document.getElementById('urlInput');
 
     // Initialize engine
-    engine.on('ready', () => {
+    engine.eventBus.on('ready', () => {
       statusEl.textContent = 'Audio engine ready! Add some tracks to get started.';
       updateUI();
     });
 
     // Event handlers
-    engine.on('play', () => {
+    engine.eventBus.on('play', () => {
       statusEl.textContent = 'Playing...';
       updateUI();
     });
 
-    engine.on('pause', () => {
+    engine.eventBus.on('pause', () => {
       statusEl.textContent = 'Paused';
       updateUI();
     });
 
-    engine.on('stop', () => {
+    engine.eventBus.on('stop', () => {
       statusEl.textContent = 'Stopped';
       updateUI();
     });
 
-    engine.on('trackStart', (track) => {
+    engine.eventBus.on('trackStart', (track) => {
       statusEl.textContent = `Now playing: ${track.title}`;
       updateQueue();
     });
 
-    engine.on('trackEnd', (track) => {
+    engine.eventBus.on('trackEnd', (track) => {
       statusEl.textContent = `Finished: ${track.title}`;
     });
 
-    engine.on('error', (error) => {
+    engine.eventBus.on('queueUpdate', () => {
+       updateQueue();
+    });
+
+    engine.eventBus.on('error', (error) => {
       statusEl.textContent = `Error: ${error.message}`;
       console.error('Audio error:', error);
     });
@@ -184,7 +188,11 @@
     });
 
     clearFiltersBtn.addEventListener('click', () => {
-      // Note: In a real implementation, you'd need to clear filters
+      // Clear filters
+      engine.removeFilter('bassboost');
+      engine.removeFilter('nightcore');
+      engine.removeFilter('vaporwave');
+      engine.removeFilter('8d');
       statusEl.textContent = 'Filters cleared';
     });
 
@@ -194,7 +202,7 @@
       if (url) {
         engine.add(url);
         urlInput.value = '';
-        updateQueue();
+        // queueUpdate event handles UI update
         statusEl.textContent = 'Track added to queue';
       }
     });
@@ -231,7 +239,7 @@
           'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
           'https://www.soundjay.com/misc/sounds/bell-ringing-04.wav'
         ]);
-        updateQueue();
+        // queueUpdate event will handle UI
         statusEl.textContent = 'Demo tracks added! Click Play to start.';
       }
     }, 1000);

@@ -1,22 +1,32 @@
+import { LoopMode } from '../constants';
+import { EventBus } from '../events/EventBus';
+import { ITrack } from '../interfaces';
+import { AudioEngine } from '../AudioEngine';
 /**
  * Audio player with playback controls
  */
-export class Player {
-    constructor(audioEngine: any);
-    audioEngine: any;
-    audioContext: any;
-    source: any;
+export declare class Player {
+    private audioEngine;
+    audioContext: AudioContext;
+    private source;
     isPlaying: boolean;
     currentTime: number;
     duration: number;
     volume: number;
-    loopMode: string;
+    loopMode: LoopMode;
     eventBus: EventBus;
+    constructor(audioEngine: AudioEngine);
     /**
-     * Play audio
-     * @param {Track} track - Track to play
+     * Play audio track
+     * @param track - Track to play
      */
-    play(track: Track): Promise<void>;
+    play(track: ITrack): Promise<void>;
+    /**
+     * Play audio from URL/Stream directly
+     * This is called by Providers or as fallback
+     * @param track - Track object with URL
+     */
+    playStream(track: ITrack): Promise<void>;
     /**
      * Pause playback
      */
@@ -31,32 +41,26 @@ export class Player {
     stop(): void;
     /**
      * Seek to position
-     * @param {number} time - Time in seconds
+     * @param time - Time in seconds
      */
     seek(time: number): void;
     /**
      * Set volume
-     * @param {number} volume - Volume level (0-1)
+     * @param volume - Volume level (0-1)
      */
     setVolume(volume: number): void;
     /**
      * Set loop mode
-     * @param {string} mode - Loop mode
+     * @param mode - Loop mode
      */
-    setLoopMode(mode: string): void;
-    /**
-     * Load track into player
-     * @param {Track} track - Track to load
-     */
-    loadTrack(track: Track): Promise<void>;
+    setLoopMode(mode: LoopMode): void;
     /**
      * Handle track end based on loop mode
      */
-    handleTrackEnd(): void;
+    private handleTrackEnd;
     /**
      * Get current playback state
-     * @returns {Object} State object
+     * @returns State object
      */
     getState(): any;
 }
-import { EventBus } from '../events/EventBus.js';

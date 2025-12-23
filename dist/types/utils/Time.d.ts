@@ -1,29 +1,29 @@
 /**
  * Time formatting utilities
  */
-export class TimeUtils {
+export declare class TimeUtils {
     /**
      * Format seconds to MM:SS or HH:MM:SS
-     * @param {number} seconds - Time in seconds
-     * @returns {string} Formatted time string
+     * @param seconds - Time in seconds
+     * @returns Formatted time string
      */
     static format(seconds: number): string;
     /**
      * Parse time string to seconds
-     * @param {string} timeStr - Time string like "1:23" or "01:23:45"
-     * @returns {number} Time in seconds
+     * @param timeStr - Time string like "1:23" or "01:23:45"
+     * @returns Time in seconds
      */
     static parse(timeStr: string): number;
     /**
      * Get current timestamp in milliseconds
-     * @returns {number} Current time
+     * @returns Current time
      */
     static now(): number;
     /**
      * Calculate duration between two timestamps
-     * @param {number} start - Start time
-     * @param {number} end - End time
-     * @returns {number} Duration in milliseconds
+     * @param start - Start time
+     * @param end - End time
+     * @returns Duration in milliseconds
      */
     static duration(start: number, end: number): number;
 }

@@ -1,19 +1,38 @@
-# audify-js
+# audify-js v1.0.2
 
 [![npm version](https://badge.fury.io/js/%40students-dev%2Faudify-js.svg)](https://badge.fury.io/js/%40students-dev%2Faudify-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, modern, modular audio engine that provides playback, filters, queue management, events, and extensibility through plugins. Works in both **Node.js** and **browser** environments.
 
+**Version 1.0.2** represents a major stability and architecture enhancement, introducing a standardized provider system, robust plugin lifecycle, and full TypeScript support.
+
 ## Features
 
-- 🎵 **Unified Audio Engine**: Cross-environment abstraction using Web Audio API
-- 📋 **Queue Management**: Add, remove, shuffle, jump, and loop modes
-- 🎛️ **Audio Filters**: Bassboost, nightcore, vaporwave, 8D rotate, pitch/speed adjustment, reverb
-- 🔌 **Plugin System**: Extensible architecture with lifecycle hooks
-- 📡 **Event-Driven**: Comprehensive event system for all operations
-- 🌐 **Multi-Source Support**: Local files, remote URLs, YouTube, SoundCloud, Spotify, Lavalink
-- 🛠️ **Developer-Friendly**: TypeScript declarations, ESM/CJS builds
+- 🎵 **Unified Audio Engine**: Cross-environment abstraction using Web Audio API.
+- 📋 **Advanced Queue Management**: Add, remove, shuffle, jump, loop (track/queue) modes.
+- 🎛️ **Audio Filters**: Bassboost, nightcore, vaporwave, 8D rotate, pitch/speed adjustment, reverb.
+- 🔌 **Robust Plugin System**: Extensible architecture with safe lifecycle hooks and error isolation.
+- 📡 **Event-Driven**: Comprehensive event system for all operations.
+- 🌐 **Provider Registry**: Standardized interface for providers (Local, YouTube, Spotify, Lavalink).
+- 🛠️ **Developer-Friendly**: Full TypeScript support, strict typings, and ESM/CJS builds.
+
+## Architecture Overview
+
+Audify-js v1.0.2 uses a modular architecture:
+- **AudioEngine**: The central controller orchestrating playback, queue, and events.
+- **ProviderRegistry**: Manages source providers (e.g., resolving URLs to streams).
+- **Player**: Handles low-level audio context and buffer management.
+- **Queue**: Manages track list and state.
+- **PluginManager**: Handles extensions and hooks.
+
+## Documentation
+
+For more detailed information, check out the documentation:
+
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Providers System](docs/PROVIDERS.md)
+- [Plugin Development](docs/PLUGINS.md)
 
 ## Installation
 
@@ -33,17 +52,16 @@ npm install @students-dev/audify-js
 </head>
 <body>
   <script type="module">
-    import { AudioEngine } from '@students-dev/audify-js';
+    import { AudioEngine } from './dist/esm/index.js';
 
     const engine = new AudioEngine();
 
-    engine.on('ready', () => {
+    engine.eventBus.on('ready', () => {
       console.log('Audio engine ready!');
-      engine.add('https://example.com/audio.mp3');
-      engine.play();
+      engine.play('https://example.com/audio.mp3');
     });
 
-    engine.on('trackStart', (track) => {
+    engine.eventBus.on('trackStart', (track) => {
       console.log('Now playing:', track.title);
     });
   </script>
@@ -54,475 +72,108 @@ npm install @students-dev/audify-js
 ### Node.js
 
 ```javascript
-import { AudioEngine } from '@students-dev/audify-js';
+import { AudioEngine, LocalProvider } from '@students-dev/audify-js';
 
 const engine = new AudioEngine();
 
-engine.on('ready', () => {
-  engine.add('/path/to/audio.mp3');
-  engine.play();
+// Engine automatically registers default providers (Local, YouTube)
+// But you can register custom ones or configure them
+
+engine.eventBus.on('ready', async () => {
+  await engine.play('./music/song.mp3');
 });
+```
+
+## Providers
+
+Providers allow `audify-js` to resolve and play tracks from various sources. v1.0.2 introduces a **Provider Registry**.
+
+### Built-in Providers
+
+- **LocalProvider**: Plays local files (Node.js) or direct URLs.
+- **YouTubeProvider**: Resolves YouTube URLs (requires `ytdl-core` in real usage, mock included).
+- **SpotifyProvider**: Integrates with Spotify Web API.
+- **LavalinkProvider**: Connects to Lavalink nodes.
+
+### Configuration
+
+```javascript
+const engine = new AudioEngine({
+  spotify: {
+    clientId: '...',
+    clientSecret: '...'
+  },
+  lavalink: {
+    host: 'localhost',
+    password: 'youshallnotpass'
+  }
+});
+```
+
+## Plugins
+
+Create powerful extensions using the `Plugin` class.
+
+```typescript
+import { Plugin, IAudioEngine } from '@students-dev/audify-js';
+
+class MyLoggerPlugin extends Plugin {
+  constructor() {
+    super('logger', '1.0.0');
+  }
+
+  onLoad(engine: IAudioEngine) {
+    console.log('Plugin loaded');
+  }
+
+  beforePlay(track: any) {
+    console.log('About to play:', track.title);
+  }
+
+  trackEnd(track: any) {
+    console.log('Finished:', track.title);
+  }
+}
+
+// Register
+const plugin = new MyLoggerPlugin();
+engine.plugins.load(plugin);
+engine.plugins.enable('logger');
 ```
 
 ## API Reference
 
 ### AudioEngine
 
-The main class that orchestrates all audio functionality.
-
-#### Constructor
-
-```javascript
-const engine = new AudioEngine(options);
-```
-
-#### Spotify Integration
-
-```javascript
-// Initialize Spotify provider
-engine.initSpotify({
-  clientId: 'your_client_id',
-  clientSecret: 'your_client_secret'
-});
-
-// Search tracks
-const results = await engine.searchSpotifyTracks('query', { token: 'access_token' });
-
-// Load track
-const track = await engine.loadSpotifyTrack('track_id', { token: 'access_token' });
-```
-
-#### Lavalink Integration
-
-```javascript
-// Connect to Lavalink server
-await engine.connectLavalink({
-  host: 'localhost',
-  port: 2333,
-  password: 'youshallnotpass'
-});
-
-// Load track from Lavalink
-const track = await engine.loadLavalinkTrack('ytsearch:query');
-
-// Get Lavalink player for Discord bots
-const player = engine.getLavalinkPlayer('guild_id', 'channel_id');
-```
-
-#### Methods
-
-##### Playback Controls
-
-- `play(track?)`: Play a track or resume current playback
-- `pause()`: Pause playback
-- `stop()`: Stop playback
-- `seek(time)`: Seek to specific time (seconds)
-- `setVolume(volume)`: Set volume (0-1)
-
-##### Queue Management
-
-- `add(tracks)`: Add track(s) to queue
-- `remove(identifier)`: Remove track by index or ID
-- `next()`: Skip to next track
-- `previous()`: Go to previous track
-- `shuffle()`: Shuffle the queue
-- `clear()`: Clear the queue
-- `jump(index)`: Jump to track at index
-
-##### Filters
-
-- `applyFilter(type, options)`: Apply audio filter
-- `removeFilter(type)`: Remove audio filter
-
-##### Loop Modes
-
-- `setLoopMode(mode)`: Set loop mode (`LOOP_MODES.OFF`, `LOOP_MODES.TRACK`, `LOOP_MODES.QUEUE`)
-
-##### State
-
-- `getState()`: Get current engine state
-
-#### Events
-
-- `ready`: Engine initialized
-- `play`: Playback started
-- `pause`: Playback paused
-- `stop`: Playback stopped
-- `error`: Error occurred
-- `queueEmpty`: Queue became empty
-- `trackStart`: Track started playing
-- `trackEnd`: Track ended
-- `filterApplied`: Filter applied
-- `trackAdd`: Track added to queue
-- `trackRemove`: Track removed from queue
-- `shuffle`: Queue shuffled
-- `clear`: Queue cleared
-
-### Queue
-
-Manages the audio playback queue.
-
-```javascript
-const queue = engine.queue;
-
-// Add tracks
-queue.add('track.mp3');
-queue.add(['track1.mp3', 'track2.mp3']);
-
-// Navigate
-queue.next();
-queue.previous();
-queue.jump(5);
-
-// Modify
-queue.shuffle();
-queue.clear();
-```
-
-### Track
-
-Represents an audio track.
-
-```javascript
-import { Track } from '@students-dev/audify-js';
-
-const track = new Track('https://example.com/audio.mp3', {
-  title: 'My Song',
-  artist: 'Artist Name',
-  duration: 180
-});
-```
-
-### Filters
-
-Apply audio effects.
-
-```javascript
-// Bass boost
-engine.applyFilter('bassboost', { gain: 1.5 });
-
-// Nightcore
-engine.applyFilter('nightcore', { rate: 1.2 });
-
-// 8D Audio
-engine.applyFilter('8d');
-
-// Remove filter
-engine.removeFilter('bassboost');
-```
-
-Available filters:
-- `bassboost`: Boost low frequencies
-- `nightcore`: Speed up and pitch up
-- `vaporwave`: Slow down and pitch down
-- `8d`: 8D audio rotation effect
-- `pitch`: Adjust pitch
-- `speed`: Adjust playback speed
-- `reverb`: Add reverb effect
-
-### Plugins
-
-Extend functionality with plugins.
-
-```javascript
-import { Plugin } from '@students-dev/audify-js';
-
-class MyPlugin extends Plugin {
-  constructor() {
-    super('my-plugin', '1.0.0');
-  }
-
-  onLoad(engine) {
-    console.log('Plugin loaded!');
-  }
-
-  beforePlay(track) {
-    console.log('About to play:', track.title);
-  }
-}
-
-// Load plugin
-const plugin = new MyPlugin();
-engine.pluginManager.load(plugin);
-engine.pluginManager.enable('my-plugin');
-```
-
-### Providers
-
-Fetch metadata from different sources.
-
-```javascript
-import { YouTubeProvider, SoundCloudProvider, LocalProvider, SpotifyProvider, LavalinkProvider } from '@students-dev/audify-js';
-
-// YouTube
-const ytInfo = await YouTubeProvider.getInfo('https://youtube.com/watch?v=VIDEO_ID');
-
-// SoundCloud
-const scInfo = await SoundCloudProvider.getInfo('https://soundcloud.com/artist/track');
-
-// Local file (Node.js only)
-const localInfo = await LocalProvider.getInfo('/path/to/file.mp3');
-
-// Spotify (requires access token)
-const spotify = new SpotifyProvider({ clientId: 'your_client_id' });
-spotify.setAccessToken('access_token');
-const trackInfo = await spotify.getTrack('track_id');
-
-// Lavalink (requires Lavalink server)
-const lavalink = new LavalinkProvider({ host: 'localhost', port: 2333, password: 'password' });
-await lavalink.connect();
-const lavalinkTrack = await lavalink.loadTrack('ytsearch:query');
-```
-
-### Utils
-
-Utility functions for common tasks.
-
-```javascript
-import { TimeUtils, MetadataUtils, ProbeUtils } from '@students-dev/audify-js';
-
-// Time formatting
-TimeUtils.format(125); // "02:05"
-
-// Metadata extraction
-const metadata = MetadataUtils.extract('https://example.com/song.mp3');
-
-// Audio probing
-const probe = await ProbeUtils.probe(audioBuffer);
-```
-
-## Examples
-
-The `examples/` directory contains comprehensive examples demonstrating various features:
-
-### 📁 Available Examples
-
-- **`browser-example.html`** - Interactive browser demo with UI controls
-- **`nodejs-example.js`** - Node.js usage with event handling
-- **`queue-example.js`** - Queue management operations
-- **`plugin-examples.js`** - Custom plugin implementations
-- **`spotify-example.js`** - Spotify API integration
-- **`lavalink-example.js`** - Lavalink server integration
-
-### Basic Playback
-
-```javascript
-import { AudioEngine } from '@students-dev/audify-js';
-
-const engine = new AudioEngine();
-
-engine.on('ready', async () => {
-  // Add tracks
-  engine.add([
-    'track1.mp3',
-    'track2.mp3',
-    'https://example.com/track3.mp3'
-  ]);
-
-  // Start playing
-  await engine.play();
-
-  // Apply filter
-  engine.applyFilter('bassboost');
-});
-
-// Handle events
-engine.on('trackStart', (track) => {
-  console.log(`Playing: ${track.title}`);
-});
-
-engine.on('error', (error) => {
-  console.error('Playback error:', error);
-});
-```
-
-### Queue Management
-
-```javascript
-// Add multiple tracks
-engine.add([
-  { url: 'song1.mp3', title: 'Song One' },
-  { url: 'song2.mp3', title: 'Song Two' }
-]);
-
-// Navigation
-engine.next();
-engine.previous();
-engine.jump(2); // Jump to track at index 2
-
-// Modify queue
-engine.shuffle();
-engine.clear();
-
-// Remove specific track
-engine.remove(0); // Remove by index
-engine.remove('track-id'); // Remove by ID
-```
-
-### Audio Filters
-
-```javascript
-// Bass boost
-engine.applyFilter('bassboost', { gain: 1.5 });
-
-// Nightcore effect
-engine.applyFilter('nightcore', { rate: 1.2 });
-
-// Vaporwave effect
-engine.applyFilter('vaporwave', { rate: 0.8 });
-
-// 8D Audio
-engine.applyFilter('8d');
-
-// Pitch adjustment
-engine.applyFilter('pitch', { pitch: 1.1 });
-
-// Speed adjustment
-engine.applyFilter('speed', { speed: 1.25 });
-
-// Reverb
-engine.applyFilter('reverb', { preset: 'hall' });
-
-// Remove filter
-engine.removeFilter('bassboost');
-```
-
-### Custom Plugin
-
-```javascript
-import { Plugin } from '@students-dev/audify-js';
-
-class LoggerPlugin extends Plugin {
-  constructor() {
-    super('logger');
-  }
-
-  beforePlay(track) {
-    console.log(`[Logger] Starting playback: ${track.title}`);
-  }
-
-  afterPlay(track) {
-    console.log(`[Logger] Finished playback: ${track.title}`);
-  }
-
-  trackEnd(track) {
-    console.log(`[Logger] Track ended: ${track.title}`);
-  }
-}
-
-// Register plugin
-const loggerPlugin = new LoggerPlugin();
-engine.pluginManager.load(loggerPlugin);
-engine.pluginManager.enable('logger');
-```
-
-### Browser Usage
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>audify-js Demo</title>
-</head>
-<body>
-  <button id="playBtn">Play</button>
-  <button id="bassBtn">Bass Boost</button>
-
-  <script type="module">
-    import { AudioEngine } from '@students-dev/audify-js';
-
-    const engine = new AudioEngine();
-
-    engine.on('ready', () => {
-      engine.add('audio.mp3');
-
-      document.getElementById('playBtn').onclick = () => engine.play();
-      document.getElementById('bassBtn').onclick = () =>
-        engine.applyFilter('bassboost');
-    });
-  </script>
-</body>
-</html>
-```
-
-### Running Examples
-
-```bash
-# Browser example
-# Open examples/browser-example.html in your browser
-
-# Node.js examples
-node examples/nodejs-example.js
-node examples/queue-example.js
-```
-
-## Browser Compatibility
-
-- Chrome 14+
-- Firefox 25+
-- Safari 6+
-- Edge 12+
-
-## Node.js Compatibility
-
-- Node.js 14+
-
-For audio playback in Node.js, additional setup may be required for actual audio output.
+- `play(track?: ITrack | string)`: Play a track object or resolve a string (URL/ID).
+- `pause()`: Pause playback.
+- `stop()`: Stop playback.
+- `seek(time)`: Seek to time in seconds.
+- `setVolume(volume)`: 0.0 to 1.0.
+- `setLoopMode(mode)`: 'off', 'track', 'queue'.
+- `add(tracks)`: Add to queue.
+- `next()`: Skip to next.
+- `previous()`: Skip to previous.
+- `shuffle()`: Shuffle queue.
+- `getProvider(name)`: Get a provider instance.
+
+### Events
+
+Access via `engine.eventBus.on(event, callback)`.
+
+- `ready`
+- `play`, `pause`, `stop`
+- `trackStart`, `trackEnd`
+- `queueUpdate`
+- `error`
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create feature branch
+3. Commit changes
+4. Push and PR
 
 ## License
 
-MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Troubleshooting
-
-### Audio not playing in browser
-
-Ensure you're handling user interaction requirements for Web Audio API:
-
-```javascript
-// Resume AudioContext on user interaction
-document.addEventListener('click', () => {
-  if (engine.audioContext.state === 'suspended') {
-    engine.audioContext.resume();
-  }
-});
-```
-
-### CORS issues with remote audio
-
-When loading audio from different domains, ensure proper CORS headers are set on the server.
-
-### Node.js audio output
-
-For actual audio playback in Node.js, you may need additional packages like `speaker` or `node-speaker`.
-
-### Filter not working
-
-Some filters require AudioWorklet support in modern browsers. Check browser compatibility.
-
-## Changelog
-
-### v1.1.0
-- Added Spotify integration with client-side API support
-- Added Lavalink integration for server-based audio streaming
-- Updated dependencies for better performance and security
-- Enhanced TypeScript type definitions
-- Added comprehensive examples for new integrations
-
-### v1.0.0
-- Initial release
-- Core audio engine
-- Queue management
-- Audio filters
-- Plugin system
-- Event system
-- Provider abstractions
-- Utility functions
+MIT
