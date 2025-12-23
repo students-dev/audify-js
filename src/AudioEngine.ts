@@ -1,139 +1,267 @@
-import { AudioContext } from 'web-audio-api';
-import { FilterManager, FilterType, FilterOptions } from './FilterManager';
+import { Player } from './engine/Player';
+import { Filters } from './engine/Filters';
+import { Queue } from './queue/Queue';
+import { Track } from './queue/Track';
+import { EventBus } from './events/EventBus';
+import { ProviderRegistry } from './providers/ProviderRegistry';
+import { LocalProvider } from './providers/LocalProvider';
+import { YouTubeProvider } from './providers/YouTubeProvider';
+import { SpotifyProvider } from './providers/SpotifyProvider';
+import { LavalinkProvider } from './providers/LavalinkProvider';
+import { PluginManager } from './plugins/PluginManager';
+import { EVENTS, LOOP_MODES, LoopMode } from './constants';
+import { IAudioEngine, IProvider, ITrack } from './interfaces';
 
-export type LoopMode = 'off' | 'track' | 'queue';
-export type RepeatMode = 'off' | 'track' | 'queue';
+/**
+ * Main audio engine class
+ */
+export class AudioEngine implements IAudioEngine {
+  public options: any;
+  public player: Player;
+  public filters: Filters;
+  public queue: Queue;
+  public eventBus: EventBus;
+  public providers: ProviderRegistry;
+  public plugins: PluginManager;
+  public isReady: boolean;
 
-export class AudioEngine {
-  private audioContext: AudioContext | globalThis.AudioContext;
-  private gainNode: GainNode;
-  private filterManager: FilterManager;
-  private source: AudioBufferSourceNode | MediaElementAudioSourceNode | null = null;
-  private currentBuffer: AudioBuffer | null = null;
-  private startTime: number = 0;
-  private pausedAt: number = 0;
-  private isPlaying: boolean = false;
-  private loopMode: LoopMode = 'off';
-  private repeatMode: RepeatMode = 'off';
-  private onEndCallback?: () => void;
+  constructor(options: any = {}) {
+    this.options = options;
+    this.queue = new Queue();
+    this.eventBus = new EventBus();
+    this.providers = new ProviderRegistry();
+    this.isReady = false;
 
-  constructor() {
-    // Cross-environment AudioContext
-    if (typeof window !== 'undefined' && window.AudioContext) {
-      this.audioContext = new window.AudioContext();
-    } else {
-      this.audioContext = new AudioContext();
-    }
-
-    this.filterManager = new FilterManager(this.audioContext);
-    this.gainNode = this.audioContext.createGain();
-    this.filterManager.outputNode.connect(this.gainNode);
-    this.gainNode.connect(this.audioContext.destination);
+    this.player = new Player(this);
+    // @ts-ignore - Accessing private audioContext from player for filters
+    this.filters = new Filters(this.player.audioContext);
+    this.plugins = new PluginManager(this);
+    
+    this.initialize();
   }
 
-  async loadAudio(url: string): Promise<AudioBuffer> {
-    const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    return await this.audioContext.decodeAudioData(arrayBuffer);
-  }
+  /**
+   * Initialize the audio engine
+   */
+  async initialize() {
+    try {
+      // Connect event buses
+      this.queue.eventBus.on(EVENTS.TRACK_ADD, (track) => this.eventBus.emit(EVENTS.TRACK_ADD, track));
+      this.queue.eventBus.on(EVENTS.TRACK_REMOVE, (track) => this.eventBus.emit(EVENTS.TRACK_REMOVE, track));
+      this.queue.eventBus.on(EVENTS.QUEUE_UPDATE, (tracks) => {
+         this.eventBus.emit(EVENTS.QUEUE_UPDATE, tracks);
+         this.plugins.callHook('queueUpdate', this.queue);
+      });
+      
+      this.player.eventBus.on(EVENTS.PLAY, (data) => this.eventBus.emit(EVENTS.PLAY, data));
+      this.player.eventBus.on(EVENTS.PAUSE, () => this.eventBus.emit(EVENTS.PAUSE));
+      this.player.eventBus.on(EVENTS.STOP, () => this.eventBus.emit(EVENTS.STOP));
+      this.player.eventBus.on(EVENTS.ERROR, (error) => this.eventBus.emit(EVENTS.ERROR, error));
+      this.player.eventBus.on(EVENTS.TRACK_START, (track) => {
+         this.eventBus.emit(EVENTS.TRACK_START, track);
+         this.plugins.callHook('afterPlay', track); // afterPlay usually means playback started
+      });
+      this.player.eventBus.on(EVENTS.TRACK_END, (track) => {
+         this.eventBus.emit(EVENTS.TRACK_END, track);
+         this.plugins.callHook('trackEnd', track);
+      });
 
-  play(buffer?: AudioBuffer): void {
-    if (buffer) {
-      this.currentBuffer = buffer;
-    }
-    if (!this.currentBuffer) return;
-
-    this.stop();
-    this.source = this.audioContext.createBufferSource();
-    this.source.buffer = this.currentBuffer;
-    this.source.connect(this.filterManager.inputNode);
-
-    this.source.onended = () => {
-      this.isPlaying = false;
-      if (this.onEndCallback) {
-        this.onEndCallback();
+      // Register default providers
+      await this.registerProvider(new LocalProvider());
+      await this.registerProvider(new YouTubeProvider());
+      
+      if (this.options.spotify) {
+        await this.registerProvider(new SpotifyProvider(this.options.spotify));
       }
-    };
+      
+      if (this.options.lavalink) {
+        await this.registerProvider(new LavalinkProvider(this.options.lavalink));
+      }
 
-    const offset = this.pausedAt;
-    this.startTime = this.audioContext.currentTime - offset;
-    this.source.start(0, offset);
-    this.isPlaying = true;
+      this.isReady = true;
+      this.eventBus.emit(EVENTS.READY);
+    } catch (error) {
+      this.eventBus.emit(EVENTS.ERROR, error);
+    }
   }
 
+  async registerProvider(provider: IProvider): Promise<void> {
+    await provider.initialize(this);
+    this.providers.register(provider);
+  }
+
+  getProvider(name: string): IProvider | undefined {
+    return this.providers.get(name);
+  }
+
+  /**
+   * Play track or resume playback
+   * @param track - Track to play or track identifier
+   */
+  async play(track?: ITrack | string): Promise<void> {
+    if (!this.isReady) return;
+
+    if (track) {
+      let trackObj: ITrack | null = null;
+      if (typeof track === 'string') {
+        trackObj = new Track(track);
+        this.queue.add(trackObj as any);
+      } else {
+        trackObj = track;
+      }
+
+      this.plugins.callHook('beforePlay', trackObj);
+      await this.player.play(trackObj);
+    } else {
+      this.player.resume();
+    }
+  }
+
+  /**
+   * Pause playback
+   */
   pause(): void {
-    if (this.isPlaying) {
-      this.pausedAt = this.audioContext.currentTime - this.startTime;
-      this.audioContext.suspend();
-      this.isPlaying = false;
-    }
+    this.player.pause();
   }
 
-  resume(): void {
-    if (!this.isPlaying && this.currentBuffer) {
-      this.audioContext.resume();
-      this.isPlaying = true;
-    }
-  }
-
+  /**
+   * Stop playback
+   */
   stop(): void {
-    if (this.source) {
-      this.source.stop();
-      this.source = null;
-    }
-    this.isPlaying = false;
-    this.pausedAt = 0;
-    this.startTime = 0;
+    this.player.stop();
   }
 
+  /**
+   * Seek to position
+   * @param time - Time in seconds
+   */
   seek(time: number): void {
-    this.pausedAt = Math.max(0, Math.min(time, this.duration));
-    if (this.isPlaying) {
-      this.play();
-    }
+    this.player.seek(time);
   }
 
-  setLoopMode(mode: LoopMode): void {
-    this.loopMode = mode;
-  }
-
-  setRepeatMode(mode: RepeatMode): void {
-    this.repeatMode = mode;
-  }
-
-  onEnd(callback: () => void): void {
-    this.onEndCallback = callback;
-  }
-
-  applyFilter(type: FilterType, options?: any): void {
-    this.filterManager.applyFilter(type, options);
-  }
-
-  removeFilter(type: FilterType): void {
-    this.filterManager.removeFilter(type);
-  }
-
+  /**
+   * Set volume
+   * @param volume - Volume level (0-1)
+   */
   setVolume(volume: number): void {
-    this.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+    this.player.setVolume(volume);
   }
 
-  get currentTime(): number {
-    if (this.isPlaying) {
-      return this.audioContext.currentTime - this.startTime;
+  /**
+   * Add track(s) to queue
+   * @param tracks - Track(s) to add
+   */
+  add(tracks: ITrack | ITrack[] | string | string[]): void {
+     this.queue.add(tracks as any);
+  }
+
+  /**
+   * Remove track from queue
+   * @param identifier - Track index or ID
+   */
+  remove(identifier: number | string): ITrack | null {
+    return this.queue.remove(identifier);
+  }
+
+  /**
+   * Skip to next track
+   */
+  next(): void {
+    const nextTrack = this.queue.next(false);
+    if (nextTrack) {
+      this.play(nextTrack);
+    } else {
+      this.stop();
     }
-    return this.pausedAt;
   }
 
-  get duration(): number {
-    return this.currentBuffer?.duration || 0;
+  /**
+   * Go to previous track
+   */
+  previous(): void {
+    const prevTrack = this.queue.previous(false);
+    if (prevTrack) {
+      this.play(prevTrack);
+    }
   }
 
-  get playing(): boolean {
-    return this.isPlaying;
+  /**
+   * Shuffle queue
+   */
+  shuffle(): void {
+    this.queue.shuffle();
   }
 
+  /**
+   * Clear queue
+   */
+  clear(): void {
+    this.queue.clear();
+  }
+
+  /**
+   * Jump to track in queue
+   * @param index - Track index
+   */
+  jump(index: number): void {
+    const track = this.queue.jump(index);
+    if (track) {
+      this.play(track);
+    }
+  }
+
+  /**
+   * Apply audio filter
+   * @param type - Filter type
+   * @param options - Filter options
+   */
+  applyFilter(type: any, options: any): void {
+    this.filters.apply(type, options);
+    this.eventBus.emit(EVENTS.FILTER_APPLIED, { type, options });
+  }
+
+  /**
+   * Remove audio filter
+   * @param type - Filter type
+   */
+  removeFilter(type: any): void {
+    this.filters.remove(type);
+  }
+
+  /**
+   * Set loop mode
+   * @param mode - Loop mode
+   */
+  setLoopMode(mode: LoopMode): void {
+    this.player.setLoopMode(mode);
+  }
+
+  /**
+   * Get current state
+   * @returns Engine state
+   */
+  getState(): any {
+    return {
+      isReady: this.isReady,
+      ...this.player.getState(),
+      currentTrack: this.queue.getCurrent(),
+      queue: this.queue.getTracks(),
+      filters: this.filters.getEnabled()
+    };
+  }
+
+  /**
+   * Destroy the engine
+   */
   destroy(): void {
-    this.stop();
-    this.audioContext.close();
+    this.filters.clear();
+    this.player.stop();
+    this.providers.getAll().forEach(p => p.destroy());
+    this.plugins.getAll().forEach(p => p.onUnload());
+    // @ts-ignore
+    if (this.player.audioContext && this.player.audioContext.state !== 'closed') {
+       // @ts-ignore
+       this.player.audioContext.close();
+    }
   }
 }

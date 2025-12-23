@@ -1,32 +1,34 @@
+import { ITrack } from '../interfaces';
 /**
  * Represents an audio track
  */
-export class Track {
-    /**
-     * @param {string} url - Track URL or file path
-     * @param {Object} options - Additional options
-     */
-    constructor(url: string, options?: any);
+export declare class Track implements ITrack {
+    id: string;
     url: string;
-    title: any;
-    artist: any;
-    duration: any;
-    thumbnail: any;
-    metadata: any;
-    id: any;
+    title: string;
+    artist?: string;
+    duration?: number;
+    thumbnail?: string;
+    source?: string;
+    metadata: Record<string, any>;
+    /**
+     * @param url - Track URL or file path
+     * @param options - Additional options
+     */
+    constructor(url: string, options?: Partial<ITrack>);
     /**
      * Get track info
-     * @returns {Object} Track information
+     * @returns Track information
      */
-    getInfo(): any;
+    getInfo(): ITrack;
     /**
      * Update track metadata
-     * @param {Object} metadata - New metadata
+     * @param metadata - New metadata
      */
-    updateMetadata(metadata: any): void;
+    updateMetadata(metadata: Partial<ITrack>): void;
     /**
      * Check if track is valid
-     * @returns {boolean} Is valid
+     * @returns Is valid
      */
     isValid(): boolean;
 }
